@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>Document</title>
+    </head>
+    <body>
+        <h2>Why do I need this class:</h2>
+        <p>Shows what classes have a class as a prereq</p>
+        <form>
+            <input name="p" type="text" id="search-field" />
+            <input id="search-button" type="submit" />
+        </form>
+        <div id="results"></div>
+        <script>
+            const searchField = document.getElementById("search-field");
+            const searchButton = document.getElementById("search-button");
+            const resultsField = document.getElementById("results");
+
+            let query = new URLSearchParams(window.location.search);
+            let param = query.get("p");
+
+            searchButton.addEventListener("click", searchClasses);
+
+            if (param) {
+                searchField.value = param;
+                searchClasses().then(e => console.log("done!"));
+            }
+
+            async function searchClasses() {
+                //let response = await fetch("/searchClasses/" + searchField.value);
+                //let results = await response.json();
+
+                let classListResp = await fetch("/searchClasses/*");
+                let classList = await classListResp.json();
+
+                console.log(classList);
+
+                resultsField.innerHTML = "";
+
+                for (let result of classList) {
+                    //console.log(result);
+                    let wrapper = document.createElement("div");
+                    let title = document.createElement("h4");
+                    title.innerHTML = `<a href="/search/?p=${encodeURI(result.code)}">${result.code}</a>: + ${result.title}`;
+                    wrapper.appendChild(title);
+
+                    let description = document.createElement("p");
+                    description.innerHTML = result.description;
+                    wrapper.appendChild(description);
+
+                    // let description = document.createElement("description");
+                    let prereqMatch = result.registration_restrictions.match(/prereq(.*)/i);
+                    let doAdd = false;
+                    if (prereqMatch?.[1]) {
+                        let parser = new DOMParser();
+                        let parsed = parser.parseFromString(prereqMatch[1], "text/html");
+                        let prereqs = Array.from(parsed.body.children).filter(e => e.innerText != "");
+
+                        let lastSubject = prereqs[0].innerText.match(/[A-Z]{4}/)[1];
+
+                        //let list = document.createElement("ul");
+
+                        for (let prereq of prereqs) {
+                            let elt = document.createElement("li");
+                            let subject = prereq.innerText.match(/([A-Z]{4})/);
+                            if (!subject?.[1]) {
+                                prereq.innerText = lastSubject + " " + prereq.innerText;
+                            } else {
+                                lastSubject = subject[1];
+                            }
+                            elt.innerText = prereq.innerText;
+                        }
+
+                        console.log(prereqs.map(e => e.innerText));
+
+                        //wrapper.appendChild(list);
+                        if (prereqs.map(e => e.innerText).includes(searchField.value)) {
+                            //wrapper.style.backgroundColor = "red";
+
+                            doAdd = true;
+                        }
+                    }
+                    if (doAdd) {
+                        description.innerHTML += result.registration_restrictions;
+                        description.innerHTML += "<br> Critical Review: " + result.resources_critical_review_html;
+                        resultsField.appendChild(wrapper);
+                    }
+                }
+            }
+        </script>
+    </body>
+</html>
